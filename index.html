@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jarvies</title>
+<style>
+  :root {
+    --bg: #000000;
+    --orange: #ff7a00;
+    --orange-dim: #ff7a0055;
+    --orange-glow: #ff7a0033;
+    --text-dim: #ffb066;
+    --panel: #0a0a0a;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    overflow: hidden;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+  }
+
+  /* ---------- Partículas de fondo ---------- */
+  #particles {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ---------- Boot line (línea inicial) ---------- */
+  #bootLine {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 1px;
+    width: 0;
+    background: var(--orange);
+    box-shadow: 0 0 8px 1px var(--orange-glow);
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    opacity: 0;
+  }
+
+  /* ---------- Logo ---------- */
+  #logo {
+    position: relative;
+    z-index: 3;
+    font-size: 2.4rem;
+    letter-spacing: 0.35em;
+    font-weight: 300;
+    color: var(--orange);
+    text-shadow: 0 0 18px var(--orange-glow), 0 0 3px var(--orange);
+    opacity: 0;
+    transition: opacity 1.2s ease;
+    margin-bottom: 2.2rem;
+    text-transform: uppercase;
+  }
+  #logo.show { opacity: 1; }
+
+  /* ---------- Canvas de onda ---------- */
+  #waveWrap {
+    position: relative;
+    width: min(92vw, 900px);
+    height: 160px;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
+  #waveWrap.show { opacity: 1; }
+
+  canvas#wave {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ---------- Estado (texto pequeño bajo la onda) ---------- */
+  #status {
+    position: relative;
+    z-index: 3;
+    margin-top: 0.6rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--orange-dim);
+    opacity: 0;
+    transition: opacity 0.6s ease, color 0.4s ease;
+    height: 1.2rem;
+  }
+  #status.show { opacity: 1; }
+
+  /* ---------- Panel de conversación ---------- */
+  #conversation {
+    position: relative;
+    z-index: 3;
+    width: min(92vw, 640px);
+    max-height: 26vh;
+    overflow-y: auto;
+    margin-top: 1.6rem;
+    padding: 0 0.5rem;
+    opacity: 0;
+    transition: opacity 1s ease;
+    scrollbar-width: thin;
+    scrollbar-color: var(--orange-dim) transparent;
+  }
+  #conversation.show { opacity: 1; }
+  #conversation::-webkit-scrollbar { width: 4px; }
+  #conversation::-webkit-scrollbar-thumb { background: var(--orange-dim); border-radius: 4px; }
+
+  .msg {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    margin: 0.5rem 0;
+    opacity: 0;
+    transform: translateY(6px);
+    animation: fadeUp 0.5s ease forwards;
+  }
+  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+  .msg.user { color: #ffffff; text-align: right; }
+  .msg.ai { color: var(--text-dim); text-align: left; }
+  .msg .label {
+    display: block;
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin-bottom: 2px;
+  }
+
+  /* ---------- Controles ---------- */
+  #controls {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 1.4rem;
+    margin-top: 1.8rem;
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
+  #controls.show { opacity: 1; }
+
+  .ctrl-btn {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: 1px solid var(--orange-dim);
+    background: radial-gradient(circle at 50% 40%, #120a02, #000);
+    color: var(--orange);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: box-shadow 0.35s ease, border-color 0.35s ease, transform 0.2s ease;
+    box-shadow: 0 0 0px var(--orange-glow);
+  }
+  .ctrl-btn:hover {
+    border-color: var(--orange);
+    box-shadow: 0 0 16px var(--orange-glow);
+    transform: scale(1.05);
+  }
+  .ctrl-btn.active {
+    box-shadow: 0 0 22px 4px var(--orange-glow);
+    border-color: var(--orange);
+  }
+  .ctrl-btn svg { width: 22px; height: 22px; }
+
+  #textForm {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+    transition: opacity 0.4s ease, max-width 0.4s ease;
+  }
+  #textForm.show { opacity: 1; max-width: 320px; }
+
+  #textInput {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--orange-dim);
+    color: #fff;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.2rem;
+    width: 220px;
+    outline: none;
+  }
+  #textInput::placeholder { color: #5a3a1a; }
+
+  /* Pulso alrededor de la onda cuando la IA piensa */
+  #waveWrap.thinking::before {
+    content: "";
+    position: absolute;
+    inset: -30px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--orange-glow), transparent 70%);
+    animation: pulse 1.6s ease-in-out infinite;
+    z-index: -1;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.25; transform: scale(0.96); }
+    50% { opacity: 0.6; transform: scale(1.05); }
+  }
+
+  #hint {
+    position: absolute;
+    bottom: 1.4rem;
+    z-index: 3;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    color: #5a3a1a;
+    opacity: 0;
+    transition: opacity 1.5s ease;
+  }
+  #hint.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <canvas id="particles"></canvas>
+  <div id="bootLine"></div>
+
+  <div id="logo">Jarvies</div>
+
+  <div id="waveWrap">
+    <canvas id="wave"></canvas>
+  </div>
+
+  <div id="status">Iniciando</div>
+
+  <div id="conversation"></div>
+
+  <div id="controls">
+    <button id="micBtn" class="ctrl-btn" title="Hablar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z"/>
+        <path d="M19 11a7 7 0 01-14 0"/>
+        <path d="M12 18v3"/>
+      </svg>
+    </button>
+    <button id="textBtn" class="ctrl-btn" title="Escribir">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M4 20l1.6-4.8L17 3.8a2 2 0 012.9 0l.3.3a2 2 0 010 2.9L8.8 18.4 4 20z"/>
+      </svg>
+    </button>
+    <form id="textForm">
+      <input id="textInput" type="text" placeholder="Escribe tu mensaje..." autocomplete="off" />
+    </form>
+  </div>
+
+  <div id="hint">Presiona el micrófono para activarlo. Luego, di "Jarvies" cuando quieras</div>
+</div>
+
+<script>
+/* =========================================================================
+   JARVIES — Asistente de voz estilo JARVIS
+   Todo en un solo archivo para poder abrirlo directamente en el navegador.
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   1) PERSONALIDAD DE JARVIES
+   -------------------------------------------------------------------------
+   Este es el "system prompt" que define cómo debe comportarse la IA cuando
+   la conectes a un modelo real. Cópialo tal cual en tu backend.
+------------------------------------------------------------------------- */
+const JARVIES_SYSTEM_PROMPT = `
+Eres Jarvies, un asistente de inteligencia artificial inspirado en JARVIS de Iron Man.
+
+Reglas de personalidad y estilo:
+- Eres respetuoso y formal, pero cercano. Te diriges al usuario como "señor" con
+  moderación (no en cada frase, para no sonar repetitivo).
+- Eres rápido, directo y eficiente. Evita rodeos, relleno o disculpas innecesarias.
+- Respondes con precisión técnica cuando corresponde, pero en lenguaje claro.
+- Cometes el mínimo error posible: si no tienes un dato con certeza, lo dices
+  explícitamente en lugar de inventarlo.
+- Mantienes un tono sereno y con ligera elegancia británica, nunca informal ni efusivo.
+- Confirmas brevemente las acciones antes o después de realizarlas
+  ("Enseguida, señor.", "Hecho.", "Procesando su solicitud.").
+- No usas emojis ni exclamaciones exageradas.
+- Tus respuestas por voz son breves y van al grano (esto se lee en voz alta,
+  así que evita listas largas o párrafos extensos salvo que se pidan detalles).
+`.trim();
+
+/* -------------------------------------------------------------------------
+   2) PUNTO DE CONEXIÓN CON EL MODELO DE IA
+   -------------------------------------------------------------------------
+   Reemplaza esta función para conectar tu modelo real. Por seguridad, las
+   API keys NUNCA deben usarse directamente desde el navegador: necesitas un
+   backend intermedio (por ejemplo, una Supabase Edge Function) que reciba
+   el texto, llame al modelo con JARVIES_SYSTEM_PROMPT, y devuelva la
+   respuesta en texto plano.
+
+   Mientras tanto, se incluye una respuesta de demostración con la
+   personalidad de Jarvies para que puedas probar todo el flujo de voz.
+------------------------------------------------------------------------- */
+const JARVIES_BACKEND_URL = "https://ymounpnscqsrkpkzqdae.supabase.co/functions/v1/jarvies-chat";
+let conversationHistory = [];
+
+async function getAIResponse(userText) {
+  try {
+    const res = await fetch(JARVIES_BACKEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: userText, history: conversationHistory }),
+    });
+    if (!res.ok) throw new Error("Backend respondió " + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    conversationHistory.push({ role: "user", content: userText });
+    conversationHistory.push({ role: "assistant", content: data.reply });
+    if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
+
+    return data.reply;
+  } catch (err) {
+    console.warn("Fallo el backend de Jarvies, uso respuesta local:", err);
+    // --- DEMO de respaldo (sin backend disponible) ---
+    await new Promise(r => setTimeout(r, 500));
+    return `No pude comunicarme con el servidor, señor. Verifique que GEMINI_API_KEY esté configurada en Supabase. Mientras tanto, recibí: "${userText}".`;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   3) VOZ DE JARVIES (ElevenLabs) — con respaldo automático a la voz del navegador
+   -------------------------------------------------------------------------
+   Usa la voz "Brian - Deep, Resonant and Comforting" que enviaste (ID real
+   de ElevenLabs: nPczCjzI2devNBz1zQrb). Necesitas tu propia API key de
+   ElevenLabs; igual que con el modelo de IA, esa key NUNCA debe exponerse
+   en el navegador en producción — idealmente pásala por tu backend
+   (Supabase Edge Function). Aquí queda marcada para desarrollo/pruebas.
+------------------------------------------------------------------------- */
+const ELEVENLABS_API_KEY = ""; // <-- pon tu API key aquí solo para pruebas locales
+const ELEVENLABS_VOICE_ID = "nPczCjzI2devNBz1zQrb"; // Brian - Deep, Resonant and Comforting
+
+async function speakWithElevenLabs(text) {
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "xi-api-key": ELEVENLABS_API_KEY,
+    },
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: { stability: 0.5, similarity_boost: 0.85 },
+    }),
+  });
+  if (!res.ok) throw new Error("ElevenLabs request failed: " + res.status);
+
+  const audioBlob = await res.blob();
+  const audioUrl = URL.createObjectURL(audioBlob);
+  const audio = new Audio(audioUrl);
+
+  return new Promise((resolve) => {
+    audio.onended = () => { URL.revokeObjectURL(audioUrl); resolve(); };
+    audio.onerror = () => { URL.revokeObjectURL(audioUrl); resolve(); };
+    audio.play();
+  });
+}
+
+/* -------------------------------------------------------------------------
+   2) ESTADO GLOBAL Y REFERENCIAS DOM
+------------------------------------------------------------------------- */
+const WAKE_WORD = "jarvies";
+
+const el = {
+  bootLine: document.getElementById('bootLine'),
+  logo: document.getElementById('logo'),
+  waveWrap: document.getElementById('waveWrap'),
+  status: document.getElementById('status'),
+  conversation: document.getElementById('conversation'),
+  controls: document.getElementById('controls'),
+  micBtn: document.getElementById('micBtn'),
+  textBtn: document.getElementById('textBtn'),
+  textForm: document.getElementById('textForm'),
+  textInput: document.getElementById('textInput'),
+  hint: document.getElementById('hint'),
+  waveCanvas: document.getElementById('wave'),
+  particlesCanvas: document.getElementById('particles'),
+};
+
+let state = "idle"; // idle | listening | thinking | speaking
+let audioLevel = 0; // 0..1 amplitud actual para la onda
+let targetLevel = 0;
+
+/* -------------------------------------------------------------------------
+   3) PARTÍCULAS DE FONDO (sutiles)
+------------------------------------------------------------------------- */
+const pCtx = el.particlesCanvas.getContext('2d');
+let particles = [];
+
+function resizeCanvases() {
+  [el.particlesCanvas, el.waveCanvas].forEach(c => {
+    const rect = c === el.particlesCanvas ? { w: innerWidth, h: innerHeight } : { w: el.waveWrap.clientWidth, h: el.waveWrap.clientHeight };
+    c.width = rect.w * devicePixelRatio;
+    c.height = rect.h * devicePixelRatio;
+    c.style.width = rect.w + 'px';
+    c.style.height = rect.h + 'px';
+  });
+}
+
+function initParticles() {
+  particles = Array.from({ length: 40 }, () => ({
+    x: Math.random() * innerWidth,
+    y: Math.random() * innerHeight,
+    r: Math.random() * 1.4 + 0.3,
+    vy: -(Math.random() * 0.15 + 0.03),
+    alpha: Math.random() * 0.4 + 0.05,
+  }));
+}
+
+function drawParticles() {
+  pCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  pCtx.clearRect(0, 0, innerWidth, innerHeight);
+  particles.forEach(p => {
+    p.y += p.vy;
+    if (p.y < -5) p.y = innerHeight + 5;
+    pCtx.beginPath();
+    pCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    pCtx.fillStyle = `rgba(255,122,0,${p.alpha})`;
+    pCtx.fill();
+  });
+}
+
+/* -------------------------------------------------------------------------
+   4) ONDA CENTRAL (canvas) — curvas suaves, reacciona a audioLevel
+------------------------------------------------------------------------- */
+const wCtx = el.waveCanvas.getContext('2d');
+let t = 0;
+
+function drawWave() {
+  const w = el.waveWrap.clientWidth;
+  const h = el.waveWrap.clientHeight;
+  wCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  wCtx.clearRect(0, 0, w, h);
+
+  // suavizado del nivel de audio
+  audioLevel += (targetLevel - audioLevel) * 0.15;
+
+  const midY = h / 2;
+  const baseAmp = state === 'listening' ? 14 + audioLevel * 55
+                : state === 'speaking'  ? 10 + audioLevel * 40
+                : state === 'thinking'  ? 8 + Math.sin(t * 2) * 4
+                : 6; // idle: respiración lenta
+
+  const layers = [
+    { amp: baseAmp,        freq: 0.010, speed: 1.6, alpha: 1.0,  width: 2.2 },
+    { amp: baseAmp * 0.6,  freq: 0.016, speed: -1.1, alpha: 0.5, width: 1.4 },
+    { amp: baseAmp * 0.35, freq: 0.006, speed: 0.8,  alpha: 0.3, width: 1.0 },
+  ];
+
+  layers.forEach(layer => {
+    wCtx.beginPath();
+    for (let x = 0; x <= w; x += 4) {
+      const y = midY
+        + Math.sin(x * layer.freq + t * layer.speed) * layer.amp
+        + Math.sin(x * layer.freq * 2.3 + t * layer.speed * 0.7) * layer.amp * 0.25;
+      if (x === 0) wCtx.moveTo(x, y); else wCtx.lineTo(x, y);
+    }
+    wCtx.strokeStyle = `rgba(255,122,0,${layer.alpha})`;
+    wCtx.lineWidth = layer.width;
+    wCtx.shadowColor = 'rgba(255,122,0,0.9)';
+    wCtx.shadowBlur = state === 'idle' ? 6 : 14;
+    wCtx.stroke();
+  });
+
+  t += 0.02;
+}
+
+function loop() {
+  drawParticles();
+  drawWave();
+  requestAnimationFrame(loop);
+}
+
+/* -------------------------------------------------------------------------
+   5) SECUENCIA DE ARRANQUE (boot)
+------------------------------------------------------------------------- */
+function bootSequence() {
+  resizeCanvases();
+  initParticles();
+  loop();
+
+  setTimeout(() => {
+    // Línea aparece y se expande desde el centro
+    el.bootLine.style.transition = 'width 1.3s cubic-bezier(.19,1,.22,1), opacity 0.4s ease';
+    el.bootLine.style.opacity = '1';
+    requestAnimationFrame(() => {
+      el.bootLine.style.width = Math.min(innerWidth * 0.7, 760) + 'px';
+    });
+
+    setTimeout(() => {
+      // La línea se desvanece y aparece la onda + logo + resto de la UI
+      el.bootLine.style.transition = 'opacity 0.6s ease';
+      el.bootLine.style.opacity = '0';
+
+      el.logo.classList.add('show');
+      el.waveWrap.classList.add('show');
+      el.status.classList.add('show');
+
+      setTimeout(() => {
+        el.conversation.classList.add('show');
+        el.controls.classList.add('show');
+        el.hint.classList.add('show');
+        speakGreeting();
+      }, 500);
+    }, 1450);
+  }, 900);
+}
+
+/* -------------------------------------------------------------------------
+   6) TEXTO A VOZ (síntesis) — simula amplitud mientras habla
+------------------------------------------------------------------------- */
+let speakingAnimId = null;
+
+function startSpeakingWaveAnim() {
+  let fake = 0;
+  speakingAnimId = setInterval(() => {
+    fake = Math.random() * 0.7 + 0.3;
+    targetLevel = fake;
+  }, 90);
+}
+function stopSpeakingWaveAnim() {
+  clearInterval(speakingAnimId);
+  targetLevel = 0;
+}
+
+function speakWithBrowserVoice(text) {
+  return new Promise((resolve) => {
+    if (!('speechSynthesis' in window)) { resolve(); return; }
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'es-ES';
+    utter.rate = 1.0;
+    utter.pitch = 0.85; // más grave, se acerca al tono profundo de Jarvies
+
+    // Preferir una voz masculina/grave si el sistema tiene varias en español
+    const voices = speechSynthesis.getVoices();
+    const preferida = voices.find(v => /es/i.test(v.lang) && /male|hombre|jorge|diego|juan/i.test(v.name))
+                    || voices.find(v => /es/i.test(v.lang));
+    if (preferida) utter.voice = preferida;
+
+    utter.onend = resolve;
+    utter.onerror = resolve;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utter);
+  });
+}
+
+async function speak(text) {
+  setState('speaking');
+  pauseListening(); // evitamos que el micrófono se escuche a sí mismo
+  startSpeakingWaveAnim();
+
+  try {
+    if (ELEVENLABS_API_KEY) {
+      await speakWithElevenLabs(text);
+    } else {
+      await speakWithBrowserVoice(text);
+    }
+  } catch (err) {
+    console.warn('Fallo ElevenLabs, uso voz del navegador:', err);
+    await speakWithBrowserVoice(text);
+  }
+
+  stopSpeakingWaveAnim();
+  setState('idle');
+  resumeListening();
+}
+
+function speakGreeting() {
+  const saludo = 'Todos los sistemas operativos, señor. Soy Jarvies. ¿En qué puedo asistirle?';
+  addMessage('ai', saludo);
+  speak(saludo);
+}
+
+/* -------------------------------------------------------------------------
+   7) RECONOCIMIENTO DE VOZ (STT) + wake word
+------------------------------------------------------------------------- */
+/*
+   NOTA SOBRE EL BUG ANTERIOR:
+   La versión previa usaba DOS instancias de SpeechRecognition (una para la
+   wake word y otra para el comando) que se detenían y arrancaban entre sí.
+   Los navegadores solo permiten una sesión de reconocimiento/mic activa a
+   la vez por pestaña; al chocar, la segunda instancia fallaba en silencio
+   y el micrófono dejaba de responder. Además, iniciar reconocimiento de
+   voz automáticamente al cargar la página (sin gesto del usuario) puede
+   ser bloqueado por el navegador por seguridad.
+
+   Solución: una sola instancia de reconocimiento continuo, que se activa
+   con el primer clic del usuario en el micrófono (gesto explícito) y se
+   pausa/reanuda según el estado, en vez de crear instancias nuevas.
+*/
+const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognizer = null;
+let micUnlocked = false;   // true después del primer clic (permiso concedido)
+let awaitingCommand = false; // true justo después de detectar la wake word
+
+function buildRecognizer() {
+  const r = new SpeechRecognitionAPI();
+  r.lang = 'es-ES';
+  r.continuous = true;
+  r.interimResults = true;
+
+  r.onresult = (e) => {
+    let interim = '';
+    let final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const transcript = e.results[i][0].transcript;
+      if (e.results[i].isFinal) final += transcript;
+      else interim += transcript;
+    }
+    const combined = (final + ' ' + interim).toLowerCase();
+
+    // Modo pasivo: solo esperando la wake word
+    if (!awaitingCommand) {
+      if (combined.includes(WAKE_WORD)) {
+        awaitingCommand = true;
+        setState('listening');
+      }
+      return;
+    }
+
+    // Modo activo: capturando el comando del usuario
+    targetLevel = 0.4 + Math.random() * 0.4;
+    if (final) {
+      const cleaned = final.toLowerCase().includes(WAKE_WORD)
+        ? final.toLowerCase().replace(WAKE_WORD, '').trim()
+        : final.trim();
+      awaitingCommand = false;
+      handleUserMessage(cleaned || final.trim());
+    }
+  };
+
+  r.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      addMessage('ai', 'No tengo permiso para usar el micrófono. Habilítalo en la configuración del navegador, señor.');
+      micUnlocked = false;
+      el.micBtn.classList.remove('active');
+    }
+    // 'no-speech' y otros errores menores se ignoran; onend reintenta.
+  };
+
+  r.onend = () => {
+    // Reinicia automáticamente solo si seguimos habilitados y no estamos
+    // hablando/pensando (evita que el mic capture la propia voz de Jarvies).
+    if (micUnlocked && (state === 'idle' || state === 'listening')) {
+      try { r.start(); } catch (e) {}
+    }
+  };
+
+  return r;
+}
+
+async function activateMic() {
+  if (!SpeechRecognitionAPI) {
+    addMessage('ai', 'Este navegador no soporta reconocimiento de voz. Use Google Chrome, señor.');
+    return;
+  }
+  try {
+    // Pedimos permiso de forma explícita ANTES de crear el reconocedor.
+    // Esto es lo que garantiza que el gesto del usuario (el clic) desbloquee el mic.
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    addMessage('ai', 'No pude acceder al micrófono. Revise los permisos del sitio, señor.');
+    return;
+  }
+
+  recognizer = buildRecognizer();
+  micUnlocked = true;
+  try { recognizer.start(); } catch (e) {}
+  el.micBtn.classList.add('active');
+  addMessage('ai', `Micrófono activado. Puede decir "${WAKE_WORD}" cuando lo necesite, señor.`);
+}
+
+function pauseListening() {
+  if (recognizer) { try { recognizer.stop(); } catch (e) {} }
+}
+
+function resumeListening() {
+  if (micUnlocked && recognizer) { try { recognizer.start(); } catch (e) {} }
+}
+
+/* -------------------------------------------------------------------------
+   8) MANEJO DE MENSAJES (flujo Escuchando -> Pensando -> Hablando)
+------------------------------------------------------------------------- */
+async function handleUserMessage(text) {
+  if (!text) { setState('idle'); return; }
+
+  targetLevel = 0;
+  addMessage('user', text);
+  setState('thinking');
+
+  const reply = await getAIResponse(text);
+
+  addMessage('ai', reply);
+  await speak(reply); // speak() ya reanuda la escucha al terminar
+}
+
+function addMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const label = document.createElement('span');
+  label.className = 'label';
+  label.textContent = role === 'user' ? 'Tú' : 'Jarvies';
+  div.appendChild(label);
+  div.appendChild(document.createTextNode(text));
+  el.conversation.appendChild(div);
+  el.conversation.scrollTop = el.conversation.scrollHeight;
+}
+
+/* -------------------------------------------------------------------------
+   9) ESTADOS VISUALES
+------------------------------------------------------------------------- */
+function setState(next) {
+  state = next;
+  el.waveWrap.classList.toggle('thinking', state === 'thinking');
+
+  const labels = {
+    idle: 'En espera',
+    listening: 'Escuchando',
+    thinking: 'Pensando...',
+    speaking: 'Hablando',
+  };
+  el.status.textContent = labels[state] || '';
+  el.status.style.color = state === 'idle' ? 'var(--orange-dim)' : 'var(--orange)';
+}
+
+/* -------------------------------------------------------------------------
+   10) CONTROLES DE UI (mic + texto)
+------------------------------------------------------------------------- */
+el.micBtn.addEventListener('click', () => {
+  if (!micUnlocked) {
+    activateMic(); // primer clic: pide permiso y activa la escucha continua
+  } else if (state === 'idle') {
+    awaitingCommand = true; // clics siguientes: fuerza el modo comando al instante
+    setState('listening');
+  }
+});
+
+el.textBtn.addEventListener('click', () => {
+  el.textForm.classList.toggle('show');
+  if (el.textForm.classList.contains('show')) el.textInput.focus();
+});
+
+el.textForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = el.textInput.value.trim();
+  if (!text) return;
+  el.textInput.value = '';
+  handleUserMessage(text);
+});
+
+/* -------------------------------------------------------------------------
+   11) INICIO
+------------------------------------------------------------------------- */
+window.addEventListener('resize', resizeCanvases);
+window.addEventListener('load', () => {
+  bootSequence();
+  // El micrófono ya NO se activa automáticamente: requiere el primer clic
+  // del usuario en el botón (así el navegador concede el permiso de forma fiable).
+});
+</script>
+</body>
+</html>
